@@ -3,11 +3,9 @@ name: Post TH
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "40 0 * * *"   # 00:40 UTC
-    - cron: "40 5 * * *"   # 05:40 UTC
-    - cron: "40 10 * * *"  # 10:40 UTC
-    - cron: "40 15 * * *"  # 15:40 UTC
-    - cron: "40 20 * * *"  # 20:40 UTC
+    - cron: "5 4 * * *"
+    - cron: "5 11 * * *"
+    - cron: "5 14 * * *"
 
 
 concurrency:
