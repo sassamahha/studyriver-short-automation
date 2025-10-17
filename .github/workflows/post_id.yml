@@ -3,11 +3,9 @@ name: Post ID
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "24 0 * * *"   # 00:24 UTC
-    - cron: "24 5 * * *"   # 05:24 UTC
-    - cron: "24 10 * * *"  # 10:24 UTC
-    - cron: "24 15 * * *"  # 15:24 UTC
-    - cron: "24 20 * * *"  # 20:24 UTC
+    - cron: "5 5 * * *"
+    - cron: "5 12 * * *"
+    - cron: "5 15 * * *"
 
 
 concurrency:
