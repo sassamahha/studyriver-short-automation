@@ -3,11 +3,9 @@ name: Post DE
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "14 0 * * *"   # 00:14 UTC
-    - cron: "14 5 * * *"   # 05:14 UTC
-    - cron: "14 10 * * *"  # 10:14 UTC
-    - cron: "14 15 * * *"  # 15:14 UTC
-    - cron: "14 20 * * *"  # 20:14 UTC
+    - cron: "5 10 * * *"
+    - cron: "5 16 * * *"
+    - cron: "5 19 * * *"
 
 
 concurrency:
