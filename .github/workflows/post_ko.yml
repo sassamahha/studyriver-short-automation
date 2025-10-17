@@ -3,11 +3,9 @@ name: Post KO
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "37 0 * * *"   # 00:37 UTC
-    - cron: "37 5 * * *"   # 05:37 UTC
-    - cron: "37 10 * * *"  # 10:37 UTC
-    - cron: "37 15 * * *"  # 15:37 UTC
-    - cron: "37 20 * * *"  # 20:37 UTC
+    - cron: "5 3 * * *"
+    - cron: "5 10 * * *"
+    - cron: "5 13 * * *"
 
 
 concurrency:
