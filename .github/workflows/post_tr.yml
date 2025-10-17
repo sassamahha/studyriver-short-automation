@@ -3,11 +3,9 @@ name: Post TR
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "33 0 * * *"   # 00:33 UTC
-    - cron: "33 5 * * *"   # 05:33 UTC
-    - cron: "33 10 * * *"  # 10:33 UTC
-    - cron: "33 15 * * *"  # 15:33 UTC
-    - cron: "33 20 * * *"  # 20:33 UTC
+    - cron: "5 9 * * *"
+    - cron: "5 16 * * *"
+    - cron: "5 18 * * *"
 
 
 concurrency:
