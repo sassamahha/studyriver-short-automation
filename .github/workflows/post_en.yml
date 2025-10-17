@@ -3,9 +3,9 @@ name: Post EN
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "5 0 * * *"   # 00:05 UTC
+    # - cron: "5 0 * * *"   # 00:05 UTC
     - cron: "5 5 * * *"   # 05:05 UTC
-    - cron: "5 10 * * *"  # 10:05 UTC
+    # - cron: "5 10 * * *"  # 10:05 UTC
     - cron: "5 15 * * *"  # 15:05 UTC
     - cron: "5 20 * * *"  # 20:05 UTC
 
