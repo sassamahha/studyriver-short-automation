@@ -10,6 +10,14 @@ styles:
     title_size: 60     # 62 -> 60
     item_size: 40      # 42 -> 40
     cta_size: 46       # 48 -> 46
+
+    # CTAの設定
+    cta_max_width_ratio: 0.86   # 画面幅の何%までをCTA幅上限にする
+    cta_min_scale: 0.92         # ここまでなら自動縮小を許す
+    cta_max_lines: 2            # 1行が理想。無理なら最大2行まで
+    cta_line_gap: 0             # 2行になった時の行間（px）
+    cta_box_borderw: 24         # 既存boxと合わせる
+    
     # ラテン系の既定フォント（文字化け防止）
     font: assets/fonts/NotoSans-Regular.ttf
 
