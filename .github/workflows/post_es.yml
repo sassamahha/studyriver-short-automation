@@ -3,9 +3,9 @@ name: Post ES
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "5 18 * * *"   # 18:05 UTC (Spain 19:05)
-    - cron: "5 1 * * *"    # 01:05 UTC (Mexico City 19:05)
-    - cron: "5 22 * * *"   # 22:05 UTC (Buenos Aires 19:05)
+    - cron: "30 18 * * *"   # 18:35 UTC (Spain 19:35)
+    - cron: "30 1 * * *"    # 01:35 UTC (Mexico City 19:35)
+    - cron: "30 22 * * *"   # 22:35 UTC (Buenos Aires 19:35)
 
 
 
