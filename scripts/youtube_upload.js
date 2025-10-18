@@ -7,19 +7,31 @@
 // 必要な環境変数：
 //   YT_CLIENT_ID / YT_CLIENT_SECRET / (YT_REFRESH_TOKEN_{CC} または YT_REFRESH_TOKEN)
 //
-// 改良点：
-// - 絶対パスでも lang を安全抽出
-// - 失敗時は failed/ に退避してバッチ継続
-// - 直近50本のチャンネルタイトルと重複したら dups/ に退避し、次のストックを試行（全言語）
-// - トークンのチャンネル名をログで可視化（取り違え検出）
-// - ログ強化 / メタ安全化（clamp, タグ上限）
-// - sidecar(.json) 併走
-// - queue → sent/failed/dups の日付ディレクトリ維持
+// 主要機能：
+// - queue だけを見る（単発でも queue 外はスキップ）
+// - プリフライト内蔵（存在/サイズ/ストリーム/尺/解像度/mtimeクールダウン/任意blackdetect）
+// - 失敗は failed/、直近50本とタイトル重複は dups/ へ退避
+// - 成功時のみ sent/ へ移動（いずれも日付ディレクトリ維持）
+// - 直近タイトルの集合を起動時取得し、同ラン内も去重
+// - sidecar (.json) 併走、メタは言語別 channel_meta/{lang}.txt をマージ
+// - ログ強化／タグ上限／説明長クリップ
 
 const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
 const { google } = require("googleapis");
+const { spawnSync } = require("child_process");
+
+// ---------------- preflight config (env overridable) ----------------
+const PREFLIGHT = {
+  MIN_SIZE: parseInt(process.env.PREFLIGHT_MIN_SIZE || "1000000", 10), // >=1MB
+  MIN_DUR : parseFloat(process.env.PREFLIGHT_MIN_DUR  || "8"),         // 8s
+  MAX_DUR : parseFloat(process.env.PREFLIGHT_MAX_DUR  || "60"),        // 60s
+  MIN_W   : parseInt(process.env.PREFLIGHT_MIN_W      || "720", 10),
+  MIN_H   : parseInt(process.env.PREFLIGHT_MIN_H      || "1280", 10),
+  MTIME_COOLDOWN_S: parseInt(process.env.PREFLIGHT_MTIME_COOLDOWN_S || "30", 10),
+  CHECK_BLACK: process.env.PREFLIGHT_CHECK_BLACK === "1",
+};
 
 // ---------------- utils ----------------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -30,6 +42,9 @@ function norm(p) { return p.split(path.sep).join("/"); }
 function detectLangFromPath(p) {
   const m = norm(p).match(/\/?videos\/([^/]+)\/queue\//);
   return m ? m[1] : null;
+}
+function isInQueuePath(p){
+  return /\/videos\/[^/]+\/queue\//.test(norm(p));
 }
 function detectDateDirFromPath(p) {
   const m = norm(p).match(/\/queue\/(\d{4}-\d{2}-\d{2})\//);
@@ -169,7 +184,10 @@ async function moveToFailed(file) {
   const destDir = path.join("videos", lang, "failed", dateDir);
   await fsp.mkdir(destDir, { recursive: true });
 
-  await safeMove(file, path.join(destDir, path.basename(file)));
+  // ファイルが消えている場合は何もしない
+  if (fs.existsSync(file)) {
+    await safeMove(file, path.join(destDir, path.basename(file)));
+  }
 
   const j = file.replace(/\.mp4$/i, ".json");
   if (fs.existsSync(j)) {
@@ -187,7 +205,9 @@ async function moveToDups(file) {
   const destDir = path.join("videos", lang, "dups", dateDir);
   await fsp.mkdir(destDir, { recursive: true });
 
-  await safeMove(file, path.join(destDir, path.basename(file)));
+  if (fs.existsSync(file)) {
+    await safeMove(file, path.join(destDir, path.basename(file)));
+  }
 
   const j = file.replace(/\.mp4$/i, ".json");
   if (fs.existsSync(j)) {
@@ -240,6 +260,56 @@ async function predictTitle(file, lang, sidecar){
   return title;
 }
 
+// ---------------- preflight (built-in) ----------------
+function preflightProbe(file){
+  const p = spawnSync("ffprobe", [
+    "-v","error","-print_format","json","-show_streams","-show_format", file
+  ], { encoding:"utf8" });
+  if (p.status !== 0) {
+    throw new Error(`ffprobe failed: ${p.stderr || p.stdout || p.status}`);
+  }
+  const info = JSON.parse(p.stdout || "{}");
+  return info;
+}
+
+function assertPreflight(file, cfg = PREFLIGHT){
+  if (!fs.existsSync(file)) throw new Error("file not found");
+  const st = fs.statSync(file);
+  if (!st.isFile()) throw new Error("not a file");
+  if (st.size < cfg.MIN_SIZE) throw new Error(`file too small: ${st.size} bytes`);
+  const ageSec = (Date.now() - st.mtimeMs)/1000;
+  if (ageSec < cfg.MTIME_COOLDOWN_S) {
+    throw new Error(`file too fresh (mtime ${ageSec.toFixed(1)}s ago)`);
+  }
+
+  const info = preflightProbe(file);
+  const vStreams = (info.streams||[]).filter(s=>s.codec_type==="video");
+  if (vStreams.length === 0) throw new Error("no video stream");
+
+  const fmt = info.format || {};
+  const dur = parseFloat(fmt.duration || vStreams[0].duration || "0");
+  if (!isFinite(dur) || dur < cfg.MIN_DUR || dur > cfg.MAX_DUR) {
+    throw new Error(`bad duration: ${dur}s (expected ${cfg.MIN_DUR}..${cfg.MAX_DUR})`);
+  }
+
+  const w = vStreams[0].width || 0;
+  const h = vStreams[0].height || 0;
+  if (w < cfg.MIN_W || h < cfg.MIN_H) {
+    throw new Error(`resolution too small: ${w}x${h} (>= ${cfg.MIN_W}x${cfg.MIN_H})`);
+  }
+
+  if (cfg.CHECK_BLACK){
+    const r = spawnSync("ffmpeg", [
+      "-hide_banner","-nostats","-v","error","-i", file,
+      "-vf","blackdetect=d=0.2:pic_th=0.98","-f","null","-"
+    ], { encoding:"utf8" });
+    const hits = (r.stderr || "").match(/black_start/g);
+    if (hits && hits.length > 0) throw new Error(`black frames detected: ${hits.length}`);
+  }
+
+  return { duration: dur, width: w, height: h, size: st.size };
+}
+
 // ---------------- uploader (with small retry) ----------------
 async function uploadOne(yt, file, lang, sidecar = {}) {
   console.log("[try upload]", norm(file), "lang=", lang);
@@ -251,7 +321,7 @@ async function uploadOne(yt, file, lang, sidecar = {}) {
   const req = {
     part: "snippet,status",
     requestBody: {
-      snippet: { title, description, tags, categoryId: "27" }, // HowTo & Style
+      snippet: { title, description, tags, categoryId: "27" }, // Education
       status: { privacyStatus: "public", selfDeclaredMadeForKids: false },
     },
     media: { body: fs.createReadStream(file) },
@@ -263,7 +333,7 @@ async function uploadOne(yt, file, lang, sidecar = {}) {
       const vid = res?.data?.id;
       if (!vid) throw new Error("no video id in response");
       console.log("[uploaded]", path.basename(file), vid);
-      return { vid, title }; // ← titleも返して同一ラン内の去重に使う
+      return { vid, title }; // titleも返す（去重用）
     } catch (e) {
       const code = e?.code || e?.response?.status;
       const retriable = code === 429 || (code >= 500 && code < 600);
@@ -293,12 +363,32 @@ async function main() {
   );
 
   const yt = ytClientForLang(langArg);
-  // 起動時に直近タイトル集合を取得（全言語）
   const recent = await recentTitlesSet(yt);
 
+  // ---- single file mode ----
   if (fileArg) {
+    if (!isInQueuePath(fileArg)) {
+      console.warn("[skip] --file は queue 配下のみ許可:", norm(fileArg));
+      return;
+    }
+    if (!fs.existsSync(fileArg)) {
+      console.warn("[preflight FAIL] not found:", norm(fileArg));
+      return;
+    }
+
+    // ① プリフライト（空投稿/壊れ防止）
+    try {
+      const pf = assertPreflight(fileArg);
+      console.log(`[preflight OK] ${path.basename(fileArg)} ${pf.width}x${pf.height} ${pf.duration.toFixed(2)}s ${pf.size}B`);
+    } catch (e) {
+      console.warn("[preflight FAIL]", norm(fileArg), "-", e?.message || e);
+      await moveToFailed(fileArg); // queue 配下なので failed へ
+      return;
+    }
+
     const sidecar = await readSidecar(fileArg);
-    // アップ前にタイトル予測して去重
+
+    // ② タイトル去重（直近50本）
     try {
       const preTitle = await predictTitle(fileArg, langArg, sidecar);
       if (recent.has(normTitle(preTitle))) {
@@ -307,9 +397,11 @@ async function main() {
         return;
       }
     } catch(_) {}
+
+    // ③ アップロード
     try {
       const { title } = await uploadOne(yt, fileArg, langArg, sidecar);
-      recent.add(normTitle(title)); // 同一ラン内の連投重複も防ぐ
+      recent.add(normTitle(title));
       await moveToSent(fileArg);
     } catch (e) {
       await moveToFailed(fileArg);
@@ -318,7 +410,7 @@ async function main() {
     return;
   }
 
-  // スキップ分を埋めるため、候補は多めに取る
+  // ---- batch mode ----
   const candidateN = Math.max(maxArg * 10, maxArg);
   const batch = await pickBatch(langArg, candidateN);
   if (!batch.length) {
@@ -329,18 +421,30 @@ async function main() {
   let done = 0;
   for (const f of batch) {
     if (done >= maxArg) break;
+
+    // ① プリフライト
+    try {
+      const pf = assertPreflight(f);
+      console.log(`[preflight OK] ${path.basename(f)} ${pf.width}x${pf.height} ${pf.duration.toFixed(2)}s ${pf.size}B`);
+    } catch (e) {
+      console.warn("[preflight FAIL]", norm(f), "-", e?.message || e);
+      await moveToFailed(f);
+      continue;
+    }
+
     const sidecar = await readSidecar(f);
 
-    // アップ前にタイトル予測して去重
+    // ② タイトル去重
     try {
       const preTitle = await predictTitle(f, langArg, sidecar);
       if (recent.has(normTitle(preTitle))) {
         console.log("[skip dup-title]", preTitle);
-        await moveToDups(f); // キューから除去→次のストックを試す
+        await moveToDups(f);
         continue;
       }
     } catch(_) {}
 
+    // ③ アップロード
     try {
       const { title } = await uploadOne(yt, f, langArg, sidecar);
       recent.add(normTitle(title));
@@ -351,7 +455,7 @@ async function main() {
       console.warn("[skip after fail]", path.basename(f), e?.message || e);
     }
 
-    if (done < maxArg) await sleep(1200); // 連投間隔（好みで調整）
+    if (done < maxArg) await sleep(1200); // 連投間隔（調整可）
   }
 
   console.log(`[done] uploaded ${done} file(s) for ${langArg}`);
