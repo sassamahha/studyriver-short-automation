@@ -3,9 +3,9 @@ name: Post EN
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "5 18 * * *"   # 18:05 UTC
-    - cron: "5 0 * * *"    # 00:05 UTC
-    - cron: "5 3 * * *"    # 03:05 UTC
+    - cron: "5 18 * * *"   
+    - cron: "5 0 * * *"    
+    - cron: "0 2 * * *"    
 
 concurrency:
   group: post-en
