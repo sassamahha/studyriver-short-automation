@@ -3,9 +3,9 @@ name: Post KO
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "5 3 * * *"
-    - cron: "5 10 * * *"
-    - cron: "5 13 * * *"
+    - cron: "30 3 * * *"
+    - cron: "30 10 * * *"
+    - cron: "30 13 * * *"
 
 
 concurrency:
