@@ -3,9 +3,9 @@ name: Post FR
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "5 10 * * *"
-    - cron: "5 16 * * *"
-    - cron: "5 19 * * *"
+    - cron: "30 10 * * *"
+    - cron: "30 16 * * *"
+    - cron: "30 19 * * *"
 
 concurrency:
   group: post-fr
