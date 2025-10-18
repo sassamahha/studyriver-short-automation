@@ -10,9 +10,16 @@ styles:
     title_size: 60     # 62 -> 60
     item_size: 40      # 42 -> 40
     cta_size: 46       # 48 -> 46
+    # ラテン系の既定フォント（文字化け防止）
+    font: assets/fonts/NotoSans-Regular.ttf
 
   latin_base:
     line_gap: 64       # 72 -> 64
+
+  # ==== 英語（折返し明示）====
+  en:
+    title_wrap_chars_en: 28
+    item_wrap_chars_en: 36
 
   # ==== 長語が多い言語はさらに詰める & 折返しを早める ====
   de:
@@ -60,17 +67,25 @@ styles:
   # ==== CJK/東南アジアは少しだけ詰める（可読性は維持） ====
   ja:
     line_gap: 92       # 96 -> 92
+    font: assets/fonts/NotoSansJP-Regular.ttf
 
   ko:
     line_gap: 86       # 90 -> 86
+    font: assets/fonts/NotoSansKR-Regular.ttf
 
   zh-Hant:
     line_gap: 86       # 90 -> 86
+    font: assets/fonts/NotoSansTC-Regular.ttf
+
+  # 簡体字（必要なら）
+  zh-Hans:
+    font: assets/fonts/NotoSansSC-Regular.ttf
 
   th:
     line_gap: 86       # 90 -> 86
     title_wrap_chars_th: 24
     item_wrap_chars_th: 34
+    font: assets/fonts/NotoSansThai-Regular.ttf
 
   vi:
     line_gap: 80       # 84 -> 80
@@ -82,9 +97,11 @@ styles:
 
   hi:
     line_gap: 72       # 75 -> 72
+    font: assets/fonts/NotoSansDevanagari-Regular.ttf
 
   bn:
     line_gap: 88       # 92 -> 88
+    font: assets/fonts/NotoSansBengali-Regular.ttf
 
   ne:
     line_gap: 76       # 78 -> 76
@@ -92,19 +109,25 @@ styles:
   # ==== RTL側は軽く詰める（字面が高いので控えめ） ====
   ar:
     line_gap: 80       # 84 -> 80
+    font: assets/fonts/NotoNaskhArabic-Regular.ttf
 
   fa:
     line_gap: 86       # 90 -> 86
+    font: assets/fonts/NotoNaskhArabic-Regular.ttf
 
   ur:
     line_gap: 90       # 96 -> 90
+    font: assets/fonts/NotoNaskhArabic-Regular.ttf
 
   # ==== その他（字面が高めの固有文字） ====
   km:
     line_gap: 88       # 92 -> 88
+    font: assets/fonts/NotoSansKhmer-Regular.ttf
 
   si:
     line_gap: 90       # 94 -> 90
+    font: assets/fonts/NotoSansSinhala-Regular.ttf
 
   lo:
     line_gap: 88       # 92 -> 88
+    font: assets/fonts/NotoSansLao-Regular.ttf
