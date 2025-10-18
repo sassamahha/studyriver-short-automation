@@ -3,9 +3,9 @@ name: Post IT
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "5 10 * * *"
-    - cron: "5 16 * * *"
-    - cron: "5 19 * * *"
+    - cron: "5 11 * * *"
+    - cron: "5 17 * * *"
+    - cron: "5 20 * * *"
 
 
 concurrency:
