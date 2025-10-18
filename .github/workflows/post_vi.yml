@@ -3,9 +3,9 @@ name: Post VI
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "5 5 * * *"
-    - cron: "5 12 * * *"
-    - cron: "5 15 * * *"
+    - cron: "50 5 * * *"
+    - cron: "50 12 * * *"
+    - cron: "50 15 * * *"
 
 
 concurrency:
