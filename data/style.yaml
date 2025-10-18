@@ -50,10 +50,14 @@ styles:
   de:
     <<: *latin
     item_wrap_chars_de: 42
+    line_gap: 68
+    item_size: 40
 
   fr:
     <<: *latin
     item_wrap_chars_fr: 42
+    line_gap: 68
+    item_size: 40
 
   it:
     <<: *latin
