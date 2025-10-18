@@ -25,11 +25,11 @@ const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const USE_JSON_SCHEMA = process.env.USE_JSON_SCHEMA === "1";
 const TODAY = new Date().toISOString().slice(0,10);
 
-const COUNT = intArg("--count", 3);
+const COUNT = intArg("--count", 5);             // ← 既定5本
 const CATS_ARG = strArg("--cats", "");
 const CANDIDATES = intArg("--candidates", 7);   // 1日に作る候補数
 const REFINE = intArg("--refine", 2);           // 自己修復ループ回数
-const AUTO_PICK = boolArg("--auto_pick", true); // ヒーロー1本だけ出力
+const AUTO_PICK = boolArg("--auto_pick", false);// ← 既定は複数出力（false）
 
 const POOL_ROOT = path.join("data","seeds");
 const STATE_DIR = path.join("data","_state");
@@ -331,7 +331,6 @@ function fallbackEntry(seed, N){
 }
 
 // ==== Scoring (auto-pick hero) ====
-// 痛み・許可・時間/数字・体を使う に重み付け
 function scoreEntry(entry){
   const t = (entry.title||"").toLowerCase();
   const body = (entry.items||[]).join(" ").toLowerCase();
@@ -383,12 +382,13 @@ async function main(){
   let remaining = buildRemaining(poolAll, used);
   if (remaining.length < COUNT){ used = []; remaining = poolAll.slice(); }
 
-  const picks = sampleWithCategoryWeights(remaining, Math.max(COUNT, CANDIDATES), catsWeights || null);
+  const wanted = Math.max(COUNT, CANDIDATES);
+  const picks = sampleWithCategoryWeights(remaining, wanted, catsWeights || null);
 
-  // 生成→自己修復→スコア選抜（完全自動）
+  // 生成→自己修復→スコア選抜
   const candidates = [];
   for (const s of picks){
-    if (candidates.length >= CANDIDATES) break;
+    if (candidates.length >= wanted) break;
     // 1) 生成
     let entry = await generateOne(client, s.text);
     // 2) 自己修復（REFINEループ）
@@ -396,7 +396,6 @@ async function main(){
     for (let i=0;i<REFINE;i++){
       const judged = await critiqueAndRewrite(client, entry, N);
       if (judged && judged.items) {
-        // 再度ローカル矯正＆タイトル数字合わせ
         entry = {
           title: ensureTitleCount(clean(judged.title || entry.title), N),
           items: normalizeAndEnforce(judged.items, N),
@@ -408,19 +407,24 @@ async function main(){
     candidates.push(entry);
   }
 
-  // スコアで並べてヒーロー選抜
+  // スコアで並べて選抜
   candidates.sort((a,b)=>scoreEntry(b)-scoreEntry(a));
   const hero   = candidates[0];
-  const backup = candidates[1] || candidates[0];
-  const outEntries = AUTO_PICK ? [hero] : candidates;
+  const outEntries = AUTO_PICK ? [hero] : candidates.slice(0, COUNT);
+  const backup = candidates[1] || candidates[0] || null;
 
   await fsp.mkdir(path.join("data","en"), { recursive:true });
   await fsp.writeFile(outPathEN(TODAY), yaml.dump({ entries: outEntries }, { lineWidth: 1000 }), "utf8");
-  await fsp.writeFile(outPathEN(TODAY + ".backup.yaml"), yaml.dump({ entries: [backup] }, { lineWidth: 1000 }), "utf8");
-  console.log(`[ok] wrote ${outPathEN(TODAY)} entries=${outEntries.length} hero="${hero?.title}" schema=${USE_JSON_SCHEMA?"on":"off"}`);
+  if (backup) {
+    await fsp.writeFile(outPathEN(TODAY + ".backup.yaml"), yaml.dump({ entries: [backup] }, { lineWidth: 1000 }), "utf8");
+  }
+  console.log(`[ok] wrote ${outEntries.length} entries to ${outPathEN(TODAY)} hero="${hero?.title}" schema=${USE_JSON_SCHEMA?"on":"off"}`);
 
-  const newUsed = unique([...used.map(u=>`${u.cat}::${u.text}`), ...picks.slice(0, CANDIDATES).map(u=>`${u.cat}::${u.text}`)])
-    .map(key => { const [cat,text] = key.split("::"); return { cat, text }; });
+  // used の更新（今回は候補生成に使った分を記録）
+  const newUsed = unique([
+    ...used.map(u=>`${u.cat}::${u.text}`),
+    ...picks.slice(0, outEntries.length).map(u=>`${u.cat}::${u.text}`)
+  ]).map(key => { const [cat,text] = key.split("::"); return { cat, text }; });
   await saveUsed(newUsed);
   console.log(`[state] used ${newUsed.length}/${poolAll.length} seeds tracked`);
 }
