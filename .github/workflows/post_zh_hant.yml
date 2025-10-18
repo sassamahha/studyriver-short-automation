@@ -1,4 +1,4 @@
-name: Post TH
+name: Post ZH_HANT
 
 on:
   workflow_dispatch: {}
