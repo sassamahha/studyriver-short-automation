@@ -21,7 +21,7 @@ jobs:
     env:
       COUNT: ${{ github.event.inputs.count || '5' }}
       DURATION: "10"
-      BG: assets/bg/loop.mp4
+      BG: assets/bg
       AUDIO: assets/bgm
       # 言語追加はここを伸ばす（renderループとtranslate引数は同じ並びに）
       LANGS_TO_RENDER: "en,ja,es,pt,de,fr,it,id,hi,vi,tr,th,ko,zh_hant"
