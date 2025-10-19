@@ -23,13 +23,18 @@ jobs:
       DURATION: "10"
       BG: assets/bg/loop.mp4
       AUDIO: assets/bgm
-      LANGS_TO_RENDER: "en,ja,es,pt,de,fr,it,id,hi,vi,tr,th,ko,zh_hant" # ＜言語毎に追加(1/2)
+      # 言語追加はここを伸ばす（renderループとtranslate引数は同じ並びに）
+      LANGS_TO_RENDER: "en,ja,es,pt,de,fr,it,id,hi,vi,tr,th,ko,zh_hant"
 
     steps:
+      # ---- ① 必ず履歴ごと取得（rebase/push用）----
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
-      - name: Set DATE (today)
-        run: echo "DATE=$(date +%F)" >> $GITHUB_ENV
+      - name: Set DATE (today, UTC)
+        run: echo "DATE=$(date -u +%F)" >> $GITHUB_ENV
 
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
@@ -46,35 +51,63 @@ jobs:
           [ -n "${K:-}" ] || { echo "OPENAI_API_KEY missing"; exit 1; }
           echo "OPENAI_API_KEY OK"
 
-      # ① seedsプール → EN YAML（ランダム、未使用優先）
+      # ---- ② seeds → EN YAML（COUNT本）----
       - name: Seeds(pool) -> EN YAML
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: node scripts/seed_to_yaml.js --count=${{ env.COUNT }}
 
-      # ② EN → world 翻訳（その日の EN を明示）
+      # ---- ③ EN → 各言語 翻訳 ----
       - name: EN -> world translate
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node scripts/translate_yaml.js --date=${DATE} --langs=ja,es,pt,de,fr,it,id,hi,vi,tr,th,ko,zh_hant # ＜言語毎に追加(2/2)
+        run: |
+          node scripts/translate_yaml.js --date="${DATE}" --langs="${{ env.LANGS_TO_RENDER }}"
 
-      # ③レンダリング（今日の日付で出力）
+      # ---- ④ レンダリング（各言語ループ）----
       - name: Render videos (world)
         run: |
           IFS=',' read -ra LGS <<< "${{ env.LANGS_TO_RENDER }}"
           for L in "${LGS[@]}"; do
             if [ -f "data/$L/${DATE}.yaml" ]; then
-              node scripts/render_video.js --lang=$L --date=${DATE} --dur=${{ env.DURATION }} --bg=${{ env.BG }} --audio=${{ env.AUDIO }}
+              echo "[render] $L from data/$L/${DATE}.yaml"
+              node scripts/render_video.js --lang="$L" --date="${DATE}" --dur="${{ env.DURATION }}" --bg="${{ env.BG }}" --audio="${{ env.AUDIO }}"
             else
               echo "skip $L (data/$L/${DATE}.yaml not found)"
             fi
           done
 
-      # 在庫コミット（使用済みシードの状態も残す）
-      - name: Commit stock
+      # ---- ⑤ 在庫コミット（rebase＋リトライで必ずpush）----
+      - name: Commit stock (rebase & retry)
         run: |
-          git config user.name  "github-actions"
-          git config user.email "actions@users.noreply.github.com"
-          git add videos/*/queue/${DATE} data/_state/used_seeds.json || true
-          git commit -m "stock: ${DATE} videos (random from pool)" || echo "nothing to commit"
-          git push || true
+          set -e
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 追加対象（queue の当日分、used_seeds、必要なら sent も）
+          git add "videos"/*/queue/"${DATE}"/* 2>/dev/null || true
+          git add "data/_state/used_seeds.json" 2>/dev/null || true
+
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+
+          git commit -m "stock: ${DATE} videos (random from pool)"
+
+          # 競合に強い push（最大5回）
+          for i in 1 2 3 4 5; do
+            git fetch origin main
+            if git rebase origin/main; then
+              if git push origin HEAD:main; then
+                echo "pushed on attempt ${i}"
+                exit 0
+              fi
+            else
+              git rebase --abort || true
+            fi
+            echo "retrying push... (${i})"
+            sleep $((i*2))
+          done
+          echo "push failed after retries" >&2
+          exit 1
