@@ -2,10 +2,10 @@ name: Post PT
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "5 1 * * *"
-    - cron: "0 15 * * *"
-    - cron: "5 22 * * *"
+  # schedule:
+    # - cron: "5 1 * * *"
+    # - cron: "0 15 * * *"
+    # - cron: "5 22 * * *"
 
 
 concurrency:
