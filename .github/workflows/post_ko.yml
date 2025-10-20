@@ -2,10 +2,10 @@ name: Post KO
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "30 3 * * *"
-    - cron: "50 10 * * *"
-    - cron: "30 13 * * *"
+  # schedule:
+  #  - cron: "30 3 * * *"
+  #  - cron: "50 10 * * *"
+  #  - cron: "30 13 * * *"
 
 
 concurrency:
