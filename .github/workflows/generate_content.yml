@@ -1,8 +1,8 @@
 name: Generate & Stock
 
 on:
-  schedule:
-    - cron: "0 4 * * *"   # 13:00 JST
+  # schedule:
+  #  - cron: "0 4 * * *"   # 13:00 JST
   workflow_dispatch:
     inputs:
       count:
