@@ -2,10 +2,10 @@ name: Post IT
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "5 11 * * *"
-    - cron: "5 17 * * *"
-    - cron: "5 20 * * *"
+  # schedule:
+  #  - cron: "5 11 * * *"
+  #  - cron: "5 17 * * *"
+  #  - cron: "5 20 * * *"
 
 
 concurrency:
