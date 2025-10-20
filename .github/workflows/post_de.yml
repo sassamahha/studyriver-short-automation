@@ -2,10 +2,10 @@ name: Post DE
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "5 10 * * *"
-    - cron: "5 16 * * *"
-    - cron: "5 19 * * *"
+  # schedule:
+   # - cron: "5 10 * * *"
+   # - cron: "5 16 * * *"
+   # - cron: "5 19 * * *"
 
 
 concurrency:
