@@ -2,10 +2,10 @@ name: Post TH
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "30 5 * * *"
-    - cron: "30 12 * * *"
-    - cron: "30 15 * * *"
+  # schedule:
+    # - cron: "30 5 * * *"
+    # - cron: "30 12 * * *"
+    # - cron: "30 15 * * *"
 
 
 concurrency:
